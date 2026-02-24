@@ -168,7 +168,7 @@ Acesse `https://<ip-local>:8080/logistics-ar.html` no Chrome do celular. Para HT
 
 ## Estrutura do Arquivo
 
-O projeto é um **único arquivo HTML autocontido** (`logistics-ar.html`):
+O projeto é um **único arquivo HTML autocontido** (`index.html`):
 
 ```
 index.html
