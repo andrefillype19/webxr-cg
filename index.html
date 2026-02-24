@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cubagem AR</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,system-ui,sans-serif; background:#f0ede8;
+       color:#222; overflow:hidden; width:100vw; height:100vh; }
+
+/* ── Splash ─────────────────────────────────────────────── */
+#splash {
+  position:fixed; inset:0; z-index:100; background:#f0ede8;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:18px; padding:28px;
+}
+#splash h1 { font-size:1.9rem; font-weight:700; color:#1a1a1a; }
+#splash .sub { font-size:0.88rem; color:#666; text-align:center;
+               max-width:280px; line-height:1.55; }
+.rules-card {
+  background:#fff; border:1px solid #ddd; border-radius:10px;
+  padding:14px 18px; width:100%; max-width:290px; font-size:0.83rem;
+  line-height:2; color:#333;
+}
+.rules-card strong { display:block; font-size:0.72rem; text-transform:uppercase;
+                     letter-spacing:.06em; color:#888; margin-bottom:4px; }
+.dot { display:inline-block; width:11px; height:11px; border-radius:2px;
+       margin-right:7px; vertical-align:middle; }
+#start-btn {
+  width:100%; max-width:290px; padding:14px;
+  background:#222; color:#fff; border:none; border-radius:8px;
+  font-size:1rem; font-weight:600; cursor:pointer;
+  font-family:inherit;
+}
+#start-btn:active { opacity:.82; }
+
+/* ── Not supported ──────────────────────────────────────── */
+#unsup {
+  position:fixed; inset:0; background:#f0ede8; display:none;
+  flex-direction:column; align-items:center; justify-content:center;
+  gap:12px; padding:32px; text-align:center;
+}
+#unsup h2 { color:#b00; font-size:1.2rem; }
+#unsup p  { color:#555; max-width:270px; line-height:1.55; font-size:.87rem; }
+
+/* ── AR overlay ─────────────────────────────────────────── */
+#overlay { position:fixed; inset:0; pointer-events:none; z-index:50; display:none; }
+
+/* Top bar */
+#topbar {
+  position:fixed; top:0; left:0; right:0; padding:10px 16px;
+  background:rgba(10,10,10,.60); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+#phase-lbl { color:#fff; font-weight:700; font-size:.80rem; letter-spacing:.02em; }
+#hint-lbl  { color:rgba(255,255,255,.55); font-size:.72rem;
+             text-align:right; max-width:55%; line-height:1.3; }
+
+/* Next-box card — top right, shown in insert mode */
+#boxcard {
+  position:fixed; top:52px; right:12px;
+  background:rgba(10,10,10,.72); backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.12); border-radius:10px;
+  padding:11px 14px; font-size:.78rem; color:#ddd;
+  display:none; min-width:132px;
+}
+#boxcard .bc-label { font-size:.60rem; text-transform:uppercase;
+                     letter-spacing:.08em; color:rgba(255,255,255,.38); margin-bottom:5px; }
+#boxcard .bc-cls   { font-size:1rem; font-weight:700; margin-bottom:3px; }
+#boxcard .bc-dims  { color:rgba(255,255,255,.45); font-size:.70rem; }
+
+/* ── Mode toolbar — bottom centre pill ────────────────── */
+#mode-bar {
+  position:fixed; bottom:56px; left:50%; transform:translateX(-50%);
+  display:none; flex-direction:row; gap:0;
+  pointer-events:all;
+  background:rgba(10,10,10,.80); backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.12); border-radius:40px;
+  padding:5px;
+  box-shadow:0 4px 24px rgba(0,0,0,.5);
+}
+.mode-tab {
+  pointer-events:all; cursor:pointer; font-family:inherit;
+  background:transparent; border:none; border-radius:32px;
+  padding:9px 18px; font-size:.78rem; font-weight:600;
+  color:rgba(255,255,255,.50); transition:background .15s,color .15s;
+  -webkit-tap-highlight-color:transparent; white-space:nowrap;
+}
+.mode-tab:active { opacity:.75; }
+.mode-tab.active-insert { background:rgba(255,255,255,.18); color:#fff; }
+.mode-tab.active-remove { background:rgba(220,50,50,.35);   color:#faa; }
+.mode-tab.active-move   { background:rgba(200,140,0,.30);   color:#fda; }
+
+/* ── Utility buttons — top left ────────────────────────── */
+#util-btns {
+  position:fixed; top:52px; left:12px;
+  display:none; flex-direction:column; gap:7px;
+  pointer-events:all;
+}
+.util-btn {
+  pointer-events:all; cursor:pointer; font-family:inherit;
+  background:rgba(10,10,10,.72); backdrop-filter:blur(6px);
+  border:1px solid rgba(255,255,255,.14); border-radius:8px;
+  padding:9px 14px; font-size:.76rem; font-weight:600;
+  color:rgba(255,255,255,.70); min-width:80px; text-align:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.util-btn:active { opacity:.70; }
+#exit-btn { border-color:rgba(240,80,60,.40); color:rgba(255,140,120,.90); }
+
+/* Grab banner */
+#grab-banner {
+  position:fixed; bottom:116px; left:50%; transform:translateX(-50%);
+  background:rgba(10,10,10,.80); border:1px solid rgba(255,180,0,.50);
+  border-radius:20px; padding:7px 18px; font-size:.78rem;
+  color:rgba(255,200,80,.95); font-weight:600;
+  pointer-events:none; display:none; white-space:nowrap;
+}
+
+/* Hold-to-delete ring */
+#hold-ring {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  pointer-events:none; display:none;
+}
+#hold-ring svg { width:80px; height:80px; }
+#hold-ring .bg   { fill:none; stroke:rgba(255,255,255,.10); stroke-width:6; }
+#hold-ring .prog {
+  fill:none; stroke:#f55; stroke-width:6;
+  stroke-dasharray:201; stroke-dashoffset:201; stroke-linecap:round;
+  transform:rotate(-90deg); transform-origin:50% 50%;
+  transition:stroke-dashoffset .05s linear;
+}
+#hold-ring text { fill:#fff; font-size:13px;
+                  text-anchor:middle; dominant-baseline:middle; }
+
+/* Violation — icon + reason message */
+#violation {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  display:none; flex-direction:column; align-items:center; gap:8px;
+  pointer-events:none;
+}
+#violation-icon   { font-size:3rem; color:#e33; line-height:1; }
+#violation-reason {
+  font-size:.80rem; font-weight:600; color:#fff;
+  background:rgba(180,20,20,.80); border-radius:20px;
+  padding:5px 14px; text-align:center; max-width:220px;
+  line-height:1.3;
+}
+@keyframes vshake {
+  0%,100%{ transform:translate(-50%,-50%) scale(1); }
+  25%    { transform:translate(-47%,-52%) scale(1.08); }
+  75%    { transform:translate(-53%,-48%) scale(1.08); }
+}
+#violation.on { animation:vshake .38s ease forwards; }
+
+/* Stats footer */
+#stats {
+  position:fixed; bottom:0; left:0; right:0;
+  background:rgba(10,10,10,.70); backdrop-filter:blur(6px);
+  border-top:1px solid rgba(255,255,255,.07);
+  display:flex; padding:7px 16px; gap:20px; font-size:.72rem;
+  align-items:center;
+}
+.st { display:flex; flex-direction:column; gap:1px; }
+.st-l { color:rgba(255,255,255,.35); text-transform:uppercase;
+        font-size:.58rem; letter-spacing:.05em; }
+.st-v { font-weight:700; color:#fff; }
+.st-v.r { color:#f88; }
+.st-v.g { color:#6e6; }
+.st-v.b { color:#6af; }
+
+#canvas-wrap { width:100vw; height:100vh; }
+canvas { display:block; }
+</style>
+</head>
+<body>
+
+<!-- Splash -->
+<div id="splash">
+  <h1>📦 Computação Gráfica</h1>
+  <p class="sub">Trabalho de WebXR e Three JS.</p>
+  <div class="rules-card">
+    <strong>Regras de empilhamento de cores.</strong>
+    <div><span class="dot" style="background:#e03030"></span><b>Vermelho</b> — Grande (&gt;27 L) · camada base</div>
+    <div><span class="dot" style="background:#30a050"></span><b>Verde</b> — Médio (8–27 L) · em vermelho/verde</div>
+    <div><span class="dot" style="background:#2060dd"></span><b>Azul</b> — Pequeno (&lt;8 L) · em qualquer um</div>
+  </div>
+  <button id="start-btn" onclick="startAR()">Iniciar AR</button>
+</div>
+
+<div id="unsup">
+  <h2>AR not available</h2>
+  <p>Requires Chrome on an ARCore-supported Android device served over HTTPS.</p>
+</div>
+
+<!-- AR overlay -->
+<div id="overlay">
+  <div id="topbar">
+    <span id="phase-lbl">Colocar palet</span>
+    <span id="hint-lbl">Aponte para o chão e toque</span>
+  </div>
+
+  <!-- Next-box card (insert mode only) -->
+  <div id="boxcard">
+    <div class="bc-label">Próxima caixa</div>
+    <div class="bc-cls" id="bc-cls">—</div>
+    <div class="bc-dims" id="bc-dims">—</div>
+  </div>
+
+  <!-- Utility buttons: Reset + Exit -->
+  <div id="util-btns">
+    <button class="util-btn" id="reset-btn">↺ Resetar</button>
+    <button class="util-btn" id="exit-btn">✕ Sair</button>
+  </div>
+
+  <!-- Mode toolbar pill -->
+  <div id="mode-bar">
+    <button class="mode-tab active-insert" id="btn-insert">＋ Inserir</button>
+    <button class="mode-tab" id="btn-move">⇄ Mover</button>
+    <button class="mode-tab" id="btn-remove">🗑 Remover</button>
+  </div>
+
+  <div id="grab-banner">Toque novamente para soltar</div>
+
+  <div id="hold-ring">
+    <svg viewBox="0 0 80 80">
+      <circle class="bg"   cx="40" cy="40" r="32"/>
+      <circle class="prog" cx="40" cy="40" r="32" id="hold-arc"/>
+      <text x="40" y="40" id="hold-txt">2s</text>
+    </svg>
+  </div>
+
+  <div id="violation">
+    <div id="violation-icon">✕</div>
+    <div id="violation-reason"></div>
+  </div>
+
+  <div id="stats">
+    <div class="st"><div class="st-l">Total</div><div class="st-v"   id="s-n">0</div></div>
+    <div class="st"><div class="st-l">Vermelho</div>  <div class="st-v r" id="s-r">0</div></div>
+    <div class="st"><div class="st-l">Verde</div><div class="st-v g" id="s-g">0</div></div>
+    <div class="st"><div class="st-l">Azul</div> <div class="st-v b" id="s-b">0</div></div>
+    <div class="st"><div class="st-l">Preenchimento</div> <div class="st-v"   id="s-f">0%</div></div>
+  </div>
+</div>
+
+<div id="canvas-wrap"></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ────────────────────────────────────────────────────────────
+// CONSTANTS
+// ────────────────────────────────────────────────────────────
+// Palete: 1.2 m × 0.8 m, 14 cm
+const PAL_W   = 1.20;
+const PAL_D   = 0.80;
+const PAL_H   = 0.14;
+const HOLD_MS = 500;
+
+const C_RED   = new THREE.Color(0xe03030);
+const C_GREEN = new THREE.Color(0x30a050);
+const C_BLUE  = new THREE.Color(0x2060dd);
+
+// ────────────────────────────────────────────────────────────
+// STATE
+// ────────────────────────────────────────────────────────────
+let renderer, scene, camera, xrSession, xrRef, hitSrc;
+
+let floorReticle;
+let ghostGroup, ghostMesh, ghostWire;
+let sightRemove, sightMove;
+
+let palletAABB = null;
+
+let boxes = [];
+let nextBox = null;
+let stats = { total:0, red:0, green:0, blue:0 };
+
+let phase = 'pallet';   // 'pallet' | 'place'
+let mode  = 'insert';   // 'insert' | 'remove' | 'move'
+
+// hit-test smoothing
+let hitPose   = null;
+const hitPos  = new THREE.Vector3();
+let   hitOK   = false;
+const ALPHA   = 0.25;
+const yBuf    = [];
+let   stableY = null;
+function pushY(y) {
+  yBuf.push(y); if (yBuf.length > 30) yBuf.shift();
+  const s = [...yBuf].sort((a,b)=>a-b);
+  stableY = s[Math.floor(s.length * 0.10)];
+}
+
+let placePos   = new THREE.Vector3();
+let placeValid = false;
+
+let holdTarget=null, holdStart=0, holdActive=false, holdRaf=null;
+
+let aimedBox=null, aimedHL=null;
+let grabbedBox=null, grabbedOrigPos=new THREE.Vector3(), grabbedAbove=[];
+
+let guardT = 0;
+function guardBtn(el, fn) {
+  el.addEventListener('pointerdown', e => {
+    e.stopPropagation(); guardT = performance.now(); fn();
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// Geração de Caixas  — Distribuição igual de 1/3
+// ────────────────────────────────────────────────────────────
+function randomBox() {
+  const r = Math.random();
+  let cls, color, vol;
+  if (r < 0.333) {
+    cls='red';   color=C_RED.clone();   vol=0.028+Math.random()*0.032;
+  } else if (r < 0.667) {
+    cls='green'; color=C_GREEN.clone(); vol=0.008+Math.random()*0.019;
+  } else {
+    cls='blue';  color=C_BLUE.clone();  vol=0.001+Math.random()*0.007;
+  }
+  const h      = 0.06+Math.random()*0.22;
+  const area   = vol/h;
+  const aspect = 0.5+Math.random()*1.5;
+  const w = Math.max(0.06, Math.min(0.38, Math.sqrt(area*aspect)));
+  const d = Math.max(0.06, Math.min(0.38, Math.sqrt(area/aspect)));
+  return { w, h, d, vol, color, cls };
+}
+
+// ────────────────────────────────────────────────────────────
+// REGRAS DE EMPILHAMENTO
+//   Vermelho → superfície do palete OU em vermelho
+//   Verde → em vermelho ou verde
+//   Azul → em qualquer coisa
+// Retorna nulo se permitido, ou uma string legível com o motivo se bloqueado.
+// ────────────────────────────────────────────────────────────
+function stackingViolation(topCls, belowBox) {
+  if (!belowBox) return null; // superfície do palete — sempre permitido
+  const bot = belowBox.cls;
+  if (topCls === 'blue')  return null;
+  if (topCls === 'green') {
+    if (bot === 'red' || bot === 'green') return null;
+    return 'Verde só pode ir no vermelho ou no verde.';
+  }
+  if (topCls === 'red') {
+    if (bot === 'red') return null;
+    return 'Vermelho só pode ser empilhado em vermelho.';
+  }
+  return 'Empilhamento não permitido';
+}
+
+// ────────────────────────────────────────────────────────────
+// AUXILIARES DE INTERFACE DO USUÁRIO
+// ────────────────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+function setPhase(t) { $('phase-lbl').textContent=t; }
+function setHint(t)  { $('hint-lbl').textContent=t; }
+
+function updateStats() {
+  $('s-n').textContent = stats.total;
+  $('s-r').textContent = stats.red;
+  $('s-g').textContent = stats.green;
+  $('s-b').textContent = stats.blue;
+  if (palletAABB) {
+    const used = boxes.reduce((s,b)=>s+b.w*b.h*b.d, 0);
+    const cap  = PAL_W*PAL_D*1.5;
+    $('s-f').textContent = Math.min(100,(used/cap*100)).toFixed(0)+'%';
+  }
+}
+
+function refreshCard(box) {
+  const labels = {red:'Vermelho (Grande)',green:'Verde (Médio)',blue:'Azul (Pequeno)'};
+  $('bc-cls').textContent = labels[box.cls];
+  $('bc-cls').style.color = '#'+box.color.getHexString();
+  $('bc-dims').textContent =
+    `${(box.w*100).toFixed(0)}×${(box.h*100).toFixed(0)}×${(box.d*100).toFixed(0)} cm`;
+  $('boxcard').style.display = 'block';
+}
+
+// ────────────────────────────────────────────────────────────
+// THREE.JS INIT
+// ────────────────────────────────────────────────────────────
+function initThree() {
+  scene    = new THREE.Scene();
+  camera   = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 100);
+  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(devicePixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.xr.enabled = true;
+  renderer.shadowMap.enabled = true;
+  $('canvas-wrap').appendChild(renderer.domElement);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.65);
+  sun.position.set(3,6,3); sun.castShadow=true; scene.add(sun);
+
+  buildReticles();
+
+  guardBtn($('btn-insert'), () => setMode('insert'));
+  guardBtn($('btn-move'),   () => setMode('move'));
+  guardBtn($('btn-remove'), () => setMode('remove'));
+  guardBtn($('reset-btn'),  resetBoxes);
+  guardBtn($('exit-btn'),   exitAR);
+}
+
+// ────────────────────────────────────────────────────────────
+// RETÍCULOS E MIRAS
+// ────────────────────────────────────────────────────────────
+function buildReticles() {
+  // Retículo de pegada de palete (fase do piso)
+  floorReticle = new THREE.Group();
+  floorReticle.visible = false;
+  scene.add(floorReticle);
+
+  // Contorno retangular indicando onde o palete irá pousar.
+  const hw=PAL_W/2, hd=PAL_D/2;
+  const rectPts = [
+    new THREE.Vector3(-hw,0, hd), new THREE.Vector3( hw,0, hd),
+    new THREE.Vector3( hw,0,-hd), new THREE.Vector3(-hw,0,-hd),
+    new THREE.Vector3(-hw,0, hd)
+  ];
+  floorReticle.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(rectPts),
+    new THREE.LineBasicMaterial({
+      color:0xffffff, depthTest:false, depthWrite:false })
+  ));
+  // Ponto Central
+  const dotG = new THREE.CircleGeometry(0.025,16); dotG.rotateX(-Math.PI/2);
+  floorReticle.add(new THREE.Mesh(dotG,
+    new THREE.MeshBasicMaterial({ color:0xffffff, depthTest:false })));
+
+  // Grupo de caixas fantasmas (fase de inserção)
+  ghostGroup = new THREE.Group(); ghostGroup.visible=false; scene.add(ghostGroup);
+  ghostMesh=null; ghostWire=null;
+
+  // Miras no espaço da câmera
+  sightRemove = new THREE.Group(); sightRemove.visible=false; scene.add(sightRemove);
+  sightMove   = new THREE.Group(); sightMove.visible=false;   scene.add(sightMove);
+  buildSight(sightRemove, 0xee3333);
+  buildSight(sightMove,   0xffaa00);
+}
+
+function buildSight(g, col) {
+  g.add(new THREE.Mesh(new THREE.RingGeometry(0.055,0.072,40),
+    new THREE.MeshBasicMaterial({ color:col, side:THREE.DoubleSide })));
+  g.add(new THREE.Mesh(new THREE.CircleGeometry(0.010,14),
+    new THREE.MeshBasicMaterial({ color:col })));
+  const lm = new THREE.LineBasicMaterial({ color:col, linewidth:2 });
+  const gap=0.022, len=0.050;
+  [[[gap,0,0],[len,0,0]],[[-gap,0,0],[-len,0,0]],
+   [[0,gap,0],[0,len,0]],[[0,-gap,0],[0,-len,0]]].forEach(([a,b])=>{
+    g.add(new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(a[0],a[1],a[2]),
+        new THREE.Vector3(b[0],b[1],b[2])
+      ]), lm));
+  });
+}
+
+
+function posSight(grp, vp, dist) {
+  const m  = vp.transform.matrix;
+  const ox=m[12],oy=m[13],oz=m[14];
+  const fx=-m[8],fy=-m[9],fz=-m[10];
+  const fl = Math.sqrt(fx*fx+fy*fy+fz*fz)||1;
+  const ux=m[4],uy=m[5],uz=m[6];
+  grp.position.set(ox+fx/fl*dist, oy+fy/fl*dist, oz+fz/fl*dist);
+  const toCam  = new THREE.Vector3(ox-grp.position.x,
+                                    oy-grp.position.y,
+                                    oz-grp.position.z).normalize();
+  const up     = new THREE.Vector3(ux,uy,uz).normalize();
+  const right  = new THREE.Vector3().crossVectors(toCam,up).normalize();
+  const corrUp = new THREE.Vector3().crossVectors(right,toCam).normalize();
+  grp.quaternion.setFromRotationMatrix(
+    new THREE.Matrix4().makeBasis(right,corrUp,toCam.clone().negate()));
+}
+
+function clearGhost() {
+  [ghostMesh, ghostWire].forEach(m=>{
+    if(m){ m.geometry.dispose(); m.material.dispose(); ghostGroup.remove(m); }
+  });
+  ghostMesh=null; ghostWire=null;
+}
+
+function setGhost(box) {
+  clearGhost();
+  const geo = new THREE.BoxGeometry(box.w, box.h, box.d);
+  ghostMesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color:box.color, transparent:true, opacity:0.35, depthWrite:false }));
+  ghostMesh.position.y = box.h/2;
+  ghostWire = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color:0xffffff, linewidth:2 }));
+  ghostWire.position.y = box.h/2;
+  ghostGroup.add(ghostMesh); ghostGroup.add(ghostWire);
+}
+
+// ────────────────────────────────────────────────────────────
+// PALETE
+// ────────────────────────────────────────────────────────────
+function placePallet(cx, cz) {
+  const floorY = stableY !== null ? stableY : hitPos.y;
+
+  
+  const geo = new THREE.BoxGeometry(PAL_W, PAL_H, PAL_D);
+  const mat = new THREE.MeshStandardMaterial({ color:0x8b6510, roughness:0.88 });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.y = PAL_H/2;
+  mesh.receiveShadow = true;
+
+  mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color:0xccaa44, linewidth:2 })));
+
+  const pm = new THREE.LineBasicMaterial({ color:0x5a3800 });
+  const yo = PAL_H/2 + 0.001;
+  for (let i=1; i<=3; i++) {
+    const tx=(i/4-0.5)*PAL_W, tz=(i/4-0.5)*PAL_D;
+    mesh.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(tx,yo,-PAL_D/2), new THREE.Vector3(tx,yo,PAL_D/2) ]), pm));
+    mesh.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-PAL_W/2,yo,tz), new THREE.Vector3(PAL_W/2,yo,tz) ]), pm));
+  }
+
+  const pg = new THREE.Group();
+  pg.position.set(cx, floorY, cz);
+  pg.add(mesh);
+  scene.add(pg);
+
+  const hw=PAL_W/2, hd=PAL_D/2;
+  const fpts = [
+    new THREE.Vector3(-hw,0, hd), new THREE.Vector3( hw,0, hd),
+    new THREE.Vector3( hw,0,-hd), new THREE.Vector3(-hw,0,-hd),
+    new THREE.Vector3(-hw,0, hd)
+  ].map(p=>new THREE.Vector3(p.x+cx, floorY+0.004, p.z+cz));
+  const ol = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(fpts),
+    new THREE.LineBasicMaterial({ color:0xffffff, linewidth:3,
+                                   depthTest:false, depthWrite:false }));
+  ol.renderOrder = 999;
+  scene.add(ol);
+
+  palletAABB = {
+    minX:cx-hw, maxX:cx+hw,
+    minZ:cz-hd, maxZ:cz+hd,
+    surfaceY: floorY + PAL_H
+  };
+}
+
+// ────────────────────────────────────────────────────────────
+// AUXILIARES DE EMPILHAMENTO
+// ────────────────────────────────────────────────────────────
+
+// Verdadeiro se a área de `top` (centrada em pos) se sobrepõe a `bot` (centrada em botPos) em algum ponto — usado para encontrar a altura e detectar a gravidade.
+function overlapsXZ(pos, top, botPos, bot) {
+  return Math.abs(pos.x - botPos.x) < (top.w + bot.w) / 2 - 0.002 &&
+         Math.abs(pos.z - botPos.z) < (top.d + bot.d) / 2 - 0.002;
+}
+
+// Verdadeiro se `top` (na posição) tiver ≥50% de sua área base suportada por `bot`.
+// Usado apenas para validação da regra de empilhamento — não para determinar a altura.
+function hasEnoughSupport(pos, top, botPos, bot) {
+  const overlapX = Math.min(pos.x + top.w/2, botPos.x + bot.w/2)
+                 - Math.max(pos.x - top.w/2, botPos.x - bot.w/2);
+  const overlapZ = Math.min(pos.z + top.d/2, botPos.z + bot.d/2)
+                 - Math.max(pos.z - top.d/2, botPos.z - bot.d/2);
+  if (overlapX <= 0 || overlapZ <= 0) return false;
+  return (overlapX * overlapZ) >= 0.50 * top.w * top.d;
+}
+
+function getStackY(pos, box, exclude, excludeSet) {
+  let maxY = palletAABB ? palletAABB.surfaceY : 0;
+  boxes.forEach(b => {
+    if (b === exclude) return;
+    if (excludeSet && excludeSet.has(b)) return;
+    if (overlapsXZ(pos, box, b.mesh.position, b)) {
+      const top = b.mesh.position.y + b.h / 2;
+      if (top > maxY) maxY = top;
+    }
+  });
+  return maxY;
+}
+
+function getBoxBelow(pos, box, exclude, excludeSet) {
+  let below = null, maxTop = palletAABB ? palletAABB.surfaceY : 0;
+  boxes.forEach(b => {
+    if (b === exclude) return;
+    if (excludeSet && excludeSet.has(b)) return;
+    if (overlapsXZ(pos, box, b.mesh.position, b)) {
+      const top = b.mesh.position.y + b.h / 2;
+      if (top > maxTop) { maxTop = top; below = b; }
+    }
+  });
+  return below;
+}
+
+function getBoxesAbove(target) {
+  const result   = new Set();
+  const frontier = [target];
+  while (frontier.length) {
+    const src = frontier.pop();
+    boxes.forEach(b => {
+      if (b === target)   return;
+      if (result.has(b)) return;
+      if (b.mesh.position.y <= src.mesh.position.y) return;
+      if (overlapsXZ(b.mesh.position, b, src.mesh.position, src)) {
+        result.add(b);
+        frontier.push(b);
+      }
+    });
+  }
+  return [...result];
+}
+
+
+function applyGravity(list) {
+  list.sort((a, b) => a.mesh.position.y - b.mesh.position.y);
+  const unsettled = new Set(list);
+  list.forEach(b => {
+    unsettled.delete(b);
+    b.mesh.position.y = getStackY(b.mesh.position, b, b, unsettled) + b.h / 2;
+    if (aimedHL && aimedBox === b) aimedHL.position.copy(b.mesh.position);
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// PLACE BOX
+// ────────────────────────────────────────────────────────────
+function placeBox() {
+  if (!nextBox||!placeValid) return;
+  const pos   = placePos.clone();
+  const below = getBoxBelow(pos, nextBox, null);
+  
+  if (below && !hasEnoughSupport(pos, nextBox, below.mesh.position, below)) {
+    showViolation('Apoio insuficiente!'); return;
+  }
+  const why = stackingViolation(nextBox.cls, below);
+  if (why) { showViolation(why); return; }
+
+  const geo  = new THREE.BoxGeometry(nextBox.w, nextBox.h, nextBox.d);
+  const mesh = new THREE.Mesh(geo,
+    new THREE.MeshStandardMaterial({
+      color:nextBox.color, roughness:0.55, metalness:0.04 }));
+  mesh.position.copy(pos);
+  mesh.castShadow=true; mesh.receiveShadow=true;
+  scene.add(mesh);
+  mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color:0xffffff, linewidth:2 })));
+
+  const cv=document.createElement('canvas'); cv.width=128; cv.height=48;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='rgba(0,0,0,.62)'; ctx.fillRect(0,0,128,48);
+  ctx.fillStyle='#fff'; ctx.font='600 11px system-ui'; ctx.textAlign='center';
+  ctx.fillText(
+    `${(nextBox.w*100).toFixed(0)}×${(nextBox.h*100).toFixed(0)}×${(nextBox.d*100).toFixed(0)} cm`,
+    64,17);
+  ctx.fillStyle='#'+nextBox.color.getHexString();
+  ctx.fillText(`${(nextBox.vol*1000).toFixed(1)} L`, 64,36);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(cv), transparent:true }));
+  sp.scale.set(0.17,0.065,1); sp.position.y=nextBox.h/2+0.055;
+  mesh.add(sp);
+
+  boxes.push({ mesh, w:nextBox.w, h:nextBox.h, d:nextBox.d,
+               vol:nextBox.vol, color:nextBox.color, cls:nextBox.cls });
+  stats.total++; stats[nextBox.cls]++;
+  updateStats();
+
+  nextBox=randomBox();
+  setGhost(nextBox);
+  refreshCard(nextBox);
+  setHint('Aponte para o palete · toque para colocar');
+}
+
+// ────────────────────────────────────────────────────────────
+// REMOVE BOX
+// ────────────────────────────────────────────────────────────
+function removeBox(boxData) {
+  const idx=boxes.indexOf(boxData); if (idx===-1) return;
+  const above=getBoxesAbove(boxData);
+  clearHL(); scene.remove(boxData.mesh);
+  boxes.splice(idx,1);
+  stats.total--; stats[boxData.cls]--;
+  aimedBox=null;
+  applyGravity(above);
+  updateStats();
+}
+
+// ────────────────────────────────────────────────────────────
+// MOVE BOX  — grab / drag / drop
+// ────────────────────────────────────────────────────────────
+function grabBox(boxData) {
+  grabbedBox=boxData;
+  grabbedOrigPos.copy(boxData.mesh.position);
+  grabbedAbove=getBoxesAbove(boxData);
+
+  grabbedAbove.forEach(b=>{ b._saved=b.mesh.position.clone(); });
+  setHL(boxData, 0xffaa00);
+  $('grab-banner').style.display='block';
+}
+
+function dropBox() {
+  if (!grabbedBox) return;
+  const box   = grabbedBox;
+  const pos   = placePos.clone();
+
+  const aboveSet = new Set(grabbedAbove);
+  const below = getBoxBelow(pos, box, box, aboveSet);
+
+  grabbedAbove.forEach(b => {
+    if (b._saved) {
+      b.mesh.position.x = b._saved.x;
+      b.mesh.position.z = b._saved.z;
+      b.mesh.position.y = Math.max(b.mesh.position.y, b._saved.y);
+    }
+  });
+
+  const supportFail = below && !hasEnoughSupport(pos, box, below.mesh.position, below);
+  const why = stackingViolation(box.cls, below);
+  if (!placeValid || supportFail || why) {
+    box.mesh.position.copy(grabbedOrigPos);
+    showViolation(supportFail ? 'Apoio insuficiente — mova para o centro' : (why || 'Não é possível colocar aqui'));
+  } else {
+    box.mesh.position.copy(pos);
+  }
+
+  applyGravity(grabbedAbove);
+
+  grabbedBox = null; grabbedAbove = [];
+  $('grab-banner').style.display = 'none';
+  clearHL(); aimedBox = null;
+}
+
+// ────────────────────────────────────────────────────────────
+// HIGHLIGHT
+// ────────────────────────────────────────────────────────────
+function setHL(box, col) {
+  clearHL(); aimedBox=box; if (!box) return;
+  const geo=new THREE.BoxGeometry(box.w+0.012,box.h+0.012,box.d+0.012);
+  aimedHL=new THREE.LineSegments(new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({ color:col, linewidth:4 }));
+  aimedHL.position.copy(box.mesh.position);
+  scene.add(aimedHL);
+}
+
+function clearHL() {
+  if (aimedHL) {
+    aimedHL.geometry.dispose(); aimedHL.material.dispose();
+    scene.remove(aimedHL); aimedHL=null;
+  }
+}
+
+function updateAim(box) {
+  if (box===aimedBox) {
+    if (aimedHL&&aimedBox) aimedHL.position.copy(aimedBox.mesh.position);
+    return;
+  }
+  setHL(box, mode==='move' ? 0xffaa00 : 0xee3333);
+}
+
+// ────────────────────────────────────────────────────────────
+// VISUAL FEEDBACK
+// ────────────────────────────────────────────────────────────
+function showViolation(reason) {
+  if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+  const v = $('violation');
+  $('violation-reason').textContent = reason || '';
+  $('violation-reason').style.display = reason ? 'block' : 'none';
+  v.style.display = 'flex';
+  v.classList.remove('on'); void v.offsetWidth; v.classList.add('on');
+  setTimeout(() => { v.style.display = 'none'; v.classList.remove('on'); }, 1800);
+}
+
+function startHold(boxData) {
+  holdActive=true; holdTarget=boxData; holdStart=performance.now();
+  $('hold-ring').style.display='block';
+  const arc=$('hold-arc'), txt=$('hold-txt');
+  function tick() {
+    if (!holdActive) { $('hold-ring').style.display='none'; return; }
+    const el=performance.now()-holdStart;
+    const p=Math.min(el/HOLD_MS,1);
+    arc.style.strokeDashoffset=201*(1-p);
+    txt.textContent=((HOLD_MS-el)/1000).toFixed(1)+'s';
+    if (p>=1) {
+      $('hold-ring').style.display='none';
+      holdActive=false; removeBox(holdTarget); holdTarget=null; return;
+    }
+    holdRaf=requestAnimationFrame(tick);
+  }
+  holdRaf=requestAnimationFrame(tick);
+}
+
+function cancelHold() {
+  holdActive=false; holdTarget=null;
+  $('hold-ring').style.display='none';
+  if (holdRaf) { cancelAnimationFrame(holdRaf); holdRaf=null; }
+}
+
+// ────────────────────────────────────────────────────────────
+// MODE  — three dedicated buttons, no cycling
+// ────────────────────────────────────────────────────────────
+function setMode(m) {
+  if (phase !== 'place') return;
+  cancelHold();
+  if (grabbedBox) dropBox();
+  clearHL(); aimedBox = null;
+  mode = m;
+
+  // Update tab active states
+  ['insert','move','remove'].forEach(t => {
+    $('btn-'+t).className = 'mode-tab' + (t === m ? ' active-'+t : '');
+  });
+
+  ghostGroup.visible  = m === 'insert';
+  sightRemove.visible = m === 'remove';
+  sightMove.visible   = m === 'move';
+  $('boxcard').style.display = m === 'insert' ? 'block' : 'none';
+
+  if      (m === 'insert') setHint('Aponte para a palete · toque para posicionar');
+  else if (m === 'remove') setHint('Aponte para uma caixa · segure 500 ms para remover');
+  else                     setHint('Toque em uma caixa para pegar · toque novamente para soltar');
+}
+
+// ────────────────────────────────────────────────────────────
+// RESET & EXIT
+// ────────────────────────────────────────────────────────────
+function resetBoxes() {
+  if (phase!=='place') return;
+  cancelHold();
+  if (grabbedBox) { grabbedBox.mesh.position.copy(grabbedOrigPos); grabbedBox=null; }
+  clearHL(); aimedBox=null;
+  boxes.forEach(b=>scene.remove(b.mesh)); boxes=[];
+  stats={total:0,red:0,green:0,blue:0}; updateStats();
+  $('grab-banner').style.display='none';
+  setMode('insert');
+  nextBox=randomBox(); setGhost(nextBox); refreshCard(nextBox);
+}
+
+function exitAR() { if (xrSession) xrSession.end().catch(()=>{}); }
+
+// ────────────────────────────────────────────────────────────
+// RAYCASTING
+// ────────────────────────────────────────────────────────────
+function raycastBoxes(vp) {
+  if (!vp||!boxes.length) return null;
+  const m=vp.transform.matrix;
+  const ray=new THREE.Raycaster();
+  ray.set(
+    new THREE.Vector3(m[12],m[13],m[14]),
+    new THREE.Vector3(-m[8],-m[9],-m[10]).normalize());
+  const hits=ray.intersectObjects(boxes.map(b=>b.mesh),false);
+  return hits.length ? (boxes.find(b=>b.mesh===hits[0].object)??null) : null;
+}
+
+// ────────────────────────────────────────────────────────────
+// WEBXR SESSION
+// ────────────────────────────────────────────────────────────
+async function startAR() {
+  if (!navigator.xr) { showUnsup(); return; }
+  if (!await navigator.xr.isSessionSupported('immersive-ar').catch(()=>false)) {
+    showUnsup(); return;
+  }
+  initThree();
+  const ov={ domOverlay:{ root:$('overlay') } };
+  try {
+    xrSession=await navigator.xr.requestSession('immersive-ar',
+      { ...ov, requiredFeatures:['hit-test','dom-overlay','local-floor'] });
+  } catch {
+    try {
+      xrSession=await navigator.xr.requestSession('immersive-ar',
+        { ...ov, requiredFeatures:['hit-test'],
+                  optionalFeatures:['dom-overlay','local-floor'] });
+    } catch(e) { alert('AR failed: '+e.message); return; }
+  }
+  renderer.xr.setReferenceSpaceType('local-floor');
+  await renderer.xr.setSession(xrSession);
+  xrRef   = await xrSession.requestReferenceSpace('local-floor')
+              .catch(()=>xrSession.requestReferenceSpace('local'));
+  hitSrc  = await xrSession.requestHitTestSource({
+    space: await xrSession.requestReferenceSpace('viewer') });
+
+  $('splash').style.display  = 'none';
+  $('overlay').style.display = 'block';
+
+  xrSession.addEventListener('selectend', onSelectEnd);
+  xrSession.addEventListener('end', ()=>{
+    hitSrc?.cancel();
+
+    cancelHold();
+    if (grabbedBox) { grabbedBox = null; grabbedAbove = []; }
+    clearHL(); aimedBox = null;
+
+    boxes.forEach(b => scene.remove(b.mesh));
+    boxes      = [];
+    stats      = { total:0, red:0, green:0, blue:0 };
+    palletAABB = null;
+    phase      = 'pallet';
+    mode       = 'insert';
+
+    hitOK   = false;
+    hitPose = null;
+    yBuf.length = 0;
+    stableY = null;
+    placeValid = false;
+
+    $('util-btns').style.display = 'none';
+    $('mode-bar').style.display  = 'none';
+    $('boxcard').style.display   = 'none';
+    $('grab-banner').style.display = 'none';
+    setPhase('Colocar palet');
+    setHint('Aponte para o chão e toque');
+
+    if (ghostGroup) ghostGroup.visible = false;
+    if (floorReticle) floorReticle.visible = false;
+
+    $('overlay').style.display = 'none';
+    $('splash').style.display  = 'flex';
+    renderer.setAnimationLoop(null);
+  });
+
+  nextBox=randomBox();
+  renderer.setAnimationLoop(onXRFrame);
+}
+
+function showUnsup() {
+  $('unsup').style.display='flex'; $('splash').style.display='none';
+}
+window.startAR=startAR;
+
+// ────────────────────────────────────────────────────────────
+// INPUT
+// ────────────────────────────────────────────────────────────
+function onSelectEnd() {
+
+  if (performance.now()-guardT < 300) return;
+
+  if (phase==='pallet') {
+    if (!hitOK) return;
+    placePallet(hitPos.x, hitPos.z);
+    phase='place';
+    floorReticle.visible=false;
+    setPhase('Placing boxes');
+    $('util-btns').style.display='flex';
+    $('mode-bar').style.display='flex';
+    setMode('insert');
+    setGhost(nextBox); refreshCard(nextBox);
+    return;
+  }
+
+  if (mode==='insert') {
+    if (placeValid) placeBox();
+  } else if (mode==='remove') {
+    if (aimedBox&&!holdActive) startHold(aimedBox);
+  } else if (mode==='move') {
+    if (!grabbedBox) { if (aimedBox) grabBox(aimedBox); }
+    else             { dropBox(); }
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// FRAME LOOP
+// ────────────────────────────────────────────────────────────
+function onXRFrame(time, frame) {
+  if (!frame) return;
+  const vp=frame.getViewerPose(xrRef);
+
+  // ── Hit-test ──────────────────────────────────────────────
+  const hits=frame.getHitTestResults(hitSrc);
+  if (hits.length>0) {
+    hitPose=hits[0].getPose(xrRef);
+    if (hitPose) {
+      const mat=new THREE.Matrix4().fromArray(hitPose.transform.matrix);
+      const raw=new THREE.Vector3().setFromMatrixPosition(mat);
+      pushY(raw.y);
+      const fy=stableY??raw.y;
+      if (!hitOK) { hitPos.set(raw.x,fy,raw.z); hitOK=true; }
+      else {
+        hitPos.x+=(raw.x-hitPos.x)*ALPHA;
+        hitPos.z+=(raw.z-hitPos.z)*ALPHA;
+        hitPos.y=fy;
+      }
+    }
+  } else {
+    hitPose=null; hitOK=false; placeValid=false;
+  }
+
+  // ── Pallet placement phase ────────────────────────────────
+  if (phase==='pallet') {
+    floorReticle.visible=hitOK;
+    if (hitOK) floorReticle.position.copy(hitPos);
+    renderer.render(scene,camera); return;
+  }
+
+  placeValid=false;
+  if (palletAABB&&hitOK) {
+    const box=grabbedBox??nextBox;
+    if (box) {
+      const hw=box.w/2, hd=box.d/2;
+      const x0=palletAABB.minX+hw, x1=palletAABB.maxX-hw;
+      const z0=palletAABB.minZ+hd, z1=palletAABB.maxZ-hd;
+      if (x1>x0&&z1>z0) {
+        const cx=Math.max(x0,Math.min(x1,hitPos.x));
+        const cz=Math.max(z0,Math.min(z1,hitPos.z));
+        const sY = getStackY(new THREE.Vector3(cx, palletAABB.surfaceY, cz),
+                              box, grabbedBox, grabbedAbove.length ? new Set(grabbedAbove) : null);
+        placePos.set(cx, sY+box.h/2, cz);
+        placeValid=true;
+      }
+    }
+  }
+
+  // ── Insert mode ───────────────────────────────────────────
+  if (mode==='insert') {
+    ghostGroup.visible = placeValid&&!!nextBox;
+    if (placeValid&&nextBox)
+      ghostGroup.position.set(placePos.x, placePos.y-nextBox.h/2, placePos.z);
+  }
+
+  // ── Remove mode ───────────────────────────────────────────
+  if (mode==='remove') {
+    sightRemove.visible=true;
+    if (vp) {
+      posSight(sightRemove, vp, 1.4);
+      updateAim(raycastBoxes(vp));
+      if (holdActive&&holdTarget!==aimedBox) cancelHold();
+    }
+  } else {
+    sightRemove.visible=false;
+    cancelHold();
+  }
+
+  // ── Move mode ─────────────────────────────────────────────
+  if (mode==='move') {
+    sightMove.visible=true;
+    if (vp) {
+      posSight(sightMove, vp, 1.4);
+      if (!grabbedBox) {
+        updateAim(raycastBoxes(vp));
+      } else if (placeValid) {
+
+        grabbedBox.mesh.position.copy(placePos);
+        if (aimedHL) aimedHL.position.copy(placePos);
+        grabbedAbove.sort((a,b)=>a.mesh.position.y-b.mesh.position.y);
+        let runY=placePos.y+grabbedBox.h/2;
+        grabbedAbove.forEach(b=>{ b.mesh.position.y=runY+b.h/2; runY+=b.h; });
+      }
+    }
+  } else {
+    sightMove.visible=false;
+    if (grabbedBox) dropBox();
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ────────────────────────────────────────────────────────────
+// RESIZE
+// ────────────────────────────────────────────────────────────
+window.addEventListener('resize',()=>{
+  if (!renderer) return;
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+});
+</script>
+</body>
+</html>
